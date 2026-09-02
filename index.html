@@ -792,15 +792,6 @@ const dispName = s=>s.ko || s.en;
 const nf = (n,d=0)=>n.toLocaleString('ko-KR',{minimumFractionDigits:d,maximumFractionDigits:d});
 const sign = n=>(n>0?'+':'')+nf(n,2);
 const fmtDate = d=>d?d.replace(/-/g,'.'):'';
-/* 큰 숫자를 한글 단위(천/만/억/조)로 자동 축약 — $ 표시 값에 사용 */
-function fmtKoreanUnit(n){
-  const s=n<0?'-':''; const abs=Math.abs(n);
-  if(abs>=1e12) return s+nf(abs/1e12,2)+'조';
-  if(abs>=1e8) return s+nf(abs/1e8,2)+'억';
-  if(abs>=1e4) return s+nf(abs/1e4,2)+'만';
-  if(abs>=1e3) return s+nf(abs/1e3,2)+'천';
-  return s+nf(abs,0);
-}
 /* 평가금액·순자산 공통 표시 — state.currency로 표시 통화를 고른다(Local=원래 통화 그대로/USD/KRW로 강제 환산).
    Local일 때는 국내는 억/조, 미국(USD)은 $ + 한글 단위(천/만/억/조), 그 외 통화는 M/B + 해당 통화(기존과 동일).
    USD·KRW로 강제 환산할 때는 FX_RATE(위 8개 통화)로 변환하고, 환율 모르는 통화는 빈 값 처리.
@@ -825,9 +816,10 @@ function fmtMoney(raw, currency, isPreScaledEok){
   }
   const rawKRW = moneyKRW(raw, currency, isPreScaledEok);
   if(target==='USD'){
-    if(nativeCcy==='USD') return '$'+fmtKoreanUnit(nativeRaw);
-    if(rawKRW==null) return '';
-    return '$'+fmtKoreanUnit(rawKRW/FX_RATE.USD);
+    // 억/조 단위 토글은 USD 표시에도 동일하게 적용 — 예전엔 여기서만 천/만/억/조를 크기에 따라 자동으로 골라서 토글이 안 먹혔음
+    const usdAmt = nativeCcy==='USD' ? nativeRaw : (rawKRW!=null ? rawKRW/FX_RATE.USD : null);
+    if(usdAmt==null) return '';
+    return '$'+(state.aumUnit==='jo' ? nf(usdAmt/1e12,2)+'조' : nf(usdAmt/1e8,2)+'억');
   }
   // target==='KRW'
   if(rawKRW==null) return '';
