@@ -839,9 +839,9 @@ function filtered(){
     if(state.hedge!=='all' && e.hedge!==state.hedge) return false;
     if(state.retire!=='all' && e.retire!==state.retire) return false;
     if(!state.levs.has(effLev(e))) return false;
-    if(e.cat1 && !state.cat1s.has(e.cat1)) return false;
-    if(e.cat2 && !state.cat2s.has(e.cat2)) return false;
-    if(e.area && !state.areas.has(e.area)) return false;
+    if(!state.cat1s.has(e.cat1)) return false;
+    if(!state.cat2s.has(e.cat2)) return false;
+    if(!state.areas.has(e.area)) return false;
     if(e.weight < state.minW) return false;
     if(e.compcnt!=null && e.compcnt > state.maxCnt) return false;
     return true;
