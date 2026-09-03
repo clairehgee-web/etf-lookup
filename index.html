@@ -342,6 +342,7 @@ thead th:nth-child(13),tbody td:nth-child(13){width:64px;max-width:64px}
 thead th:nth-child(14),tbody td:nth-child(14){width:70px;max-width:70px}
 thead th:nth-child(15),tbody td:nth-child(15){width:66px;max-width:66px}
 thead th:nth-child(16),tbody td:nth-child(16){width:92px;max-width:92px}
+thead th:nth-child(17),tbody td:nth-child(17){width:92px;max-width:92px}
 tbody tr{cursor:pointer;transition:background-color .15s}
 tbody tr:hover{background:var(--card2)}
 tbody tr.sel{background:var(--tint)}
@@ -619,6 +620,7 @@ footer{border-top:1px solid var(--line);background:var(--card2)}
               <th class="sortable" data-key="retire" data-dir="" style="text-align:center">퇴직연금 <span class="arrow">▾</span></th>
               <th class="sortable" data-key="divFreq" data-dir="" style="text-align:center">배당주기 <span class="arrow">▾</span></th>
               <th class="sortable" data-key="divYield" data-dir="" style="text-align:center">연배당률 <span class="arrow">▾</span></th>
+              <th class="sortable" data-key="setDate" data-dir="" style="text-align:center">설정일 <span class="arrow">▾</span></th>
               <th class="sortable" data-key="date" data-dir="" style="text-align:center">기준일 <span class="arrow">▾</span></th>
             </tr>
           </thead>
@@ -650,8 +652,8 @@ footer{border-top:1px solid var(--line);background:var(--card2)}
 
 <script>
 /* etf() must exist before us-stocks-data.js runs, since that file calls it thousands of times. */
-function etf(name,code,mgr,idx,weight,shares,value,aum,fee,ret,dw,hedge,type,compcnt,series,price,chg,ret3m,ret6m,ret1y,qty,lev,cat1,cat2,area,retire,divFreq,divYield){
-  return {name,code,mgr,idx,weight,shares,value,aum,fee,ret,dw,hedge,type,compcnt,series,price,chg,ret3m,ret6m,ret1y,qty,lev,cat1,cat2,area,retire,divFreq,divYield};
+function etf(name,code,mgr,idx,weight,shares,value,aum,fee,ret,dw,hedge,type,compcnt,series,price,chg,ret3m,ret6m,ret1y,qty,lev,cat1,cat2,area,retire,divFreq,divYield,setDate){
+  return {name,code,mgr,idx,weight,shares,value,aum,fee,ret,dw,hedge,type,compcnt,series,price,chg,ret3m,ret6m,ret1y,qty,lev,cat1,cat2,area,retire,divFreq,divYield,setDate};
 }
 </script>
 <script src="./us-stocks-data.js"></script>
@@ -666,6 +668,10 @@ function etf(name,code,mgr,idx,weight,shares,value,aum,fee,ret,dw,hedge,type,com
 /* ===== 실데이터 (2026-08-24 스냅샷) =====
    해외 종목의 종가·시가총액·환율은 이 폴더에 연동된 서버에 시세 마스터가 없어 MOCK_QUOTE로 남겨둠 */
 const LATEST_DATE = '2026-08-24';
+/* 대분류·중분류·지역이 없는 행(주로 해외 상장 ETF 병합분 중 fe3000tb/fe1001tb 미매칭 극소수)을 위한 필터 버킷 —
+   이 값이 없으면 renderStringFilter가 아예 체크박스를 안 만들어서 필터 세트(state.cat1s 등)에도 절대 안 들어가고,
+   filtered()의 !state.cat1s.has(e.cat1) 조건에 항상 걸려 결과에서 영구히 빠짐 */
+const UNCLASSIFIED = '미분류';
 /* 보유 평가금액 합계에 미국 상장 ETF 행을 포함시킬 때 쓰는 통화별 원화 환산율.
    연동된 DB에 환율 데이터가 없어 2026-08-24 매매기준율 고정값 사용.
    여기 없는 통화(CLP/COP/ILS/AUD/SGD/ZAR 등, 도합 24건 — 미미한 비중)는 환율을 몰라 합계에서 제외(0 처리). */
@@ -739,7 +745,7 @@ for(const s of STOCKS){
       ret3m:h.ret3m, ret6m:h.ret6m, ret1y:h.ret1y,
       qty:h.shares, lev:h.lev,
       cat1:h.cat1, cat2:h.cat2, area:h.area, retire:null,
-      divFreq:h.divFreq, divYield:h.divYield
+      divFreq:h.divFreq, divYield:h.divYield, setDate:h.setDate
     });
   }
 }
@@ -839,9 +845,9 @@ function filtered(){
     if(state.hedge!=='all' && e.hedge!==state.hedge) return false;
     if(state.retire!=='all' && e.retire!==state.retire) return false;
     if(!state.levs.has(effLev(e))) return false;
-    if(!state.cat1s.has(e.cat1)) return false;
-    if(!state.cat2s.has(e.cat2)) return false;
-    if(!state.areas.has(e.area)) return false;
+    if(!state.cat1s.has(e.cat1||UNCLASSIFIED)) return false;
+    if(!state.cat2s.has(e.cat2||UNCLASSIFIED)) return false;
+    if(!state.areas.has(e.area||UNCLASSIFIED)) return false;
     if(e.weight < state.minW) return false;
     if(e.compcnt!=null && e.compcnt > state.maxCnt) return false;
     return true;
@@ -849,6 +855,7 @@ function filtered(){
     const k=state.sortKey, dir=state.sortDir==='asc'?1:-1;
     if(k==='name') return a.name.localeCompare(b.name,'ko')*dir;
     if(k==='date') return (a.date||LATEST_DATE).localeCompare(b.date||LATEST_DATE)*dir;
+    if(k==='setDate') return (a.setDate||'').localeCompare(b.setDate||'')*dir;
     if(k==='lev') return (effLev(a)-effLev(b))*dir;
     if(k==='retire') return (((a.retire==='Y')?1:0)-((b.retire==='Y')?1:0))*dir;
     if(k==='divFreq'){
@@ -969,6 +976,7 @@ function renderTable(){
       <td style="text-align:center">${e.retire||''}</td>
       <td style="text-align:center">${e.divFreq||''}</td>
       <td style="text-align:center">${e.divYield!=null?nf(e.divYield,2)+'%':''}</td>
+      <td style="text-align:center">${e.setDate?fmtDate(e.setDate):''}</td>
       <td style="text-align:center">${fmtDate(e.date||LATEST_DATE)}</td>
     </tr>`).join('');
   tb.querySelectorAll('tr').forEach(tr=>tr.onclick=()=>openDrawer(rows[+tr.dataset.i],tr));
@@ -1058,7 +1066,7 @@ function renderCntFilter(){
 /* 대분류/중분류/지역 필터 — 운용사와 같은 패턴(종목 바뀔 때마다 해당 값 전부 기본 체크), 값 없는(null) 행은 필터 대상에서 제외하고 항상 노출 */
 function renderStringFilter(field, containerId, stateSet){
   const s=cur(); const counts={};
-  s.etfs.forEach(e=>{ if(e[field]) counts[e[field]]=(counts[e[field]]||0)+1; });
+  s.etfs.forEach(e=>{ const v=e[field]||UNCLASSIFIED; counts[v]=(counts[v]||0)+1; });
   const all=Object.keys(counts).sort((a,b)=>counts[b]-counts[a]);
   stateSet.clear(); all.forEach(v=>stateSet.add(v));
   $('#'+containerId).innerHTML = all.length? all.map(v=>`
@@ -1151,6 +1159,7 @@ function openDrawer(e,tr){
       <div class="kv"><span class="k">총보수</span><span class="v">${e.fee!=null?'연 '+nf(e.fee,2)+'%':''}</span></div>
       <div class="kv"><span class="k">1개월 수익률</span><span class="v ${e.ret==null?'':(e.ret>=0?'up':'down')}">${e.ret!=null?sign(e.ret)+'%':''}</span></div>
       <div class="kv"><span class="k">구성종목 수</span><span class="v">${e.compcnt!=null?nf(e.compcnt):''}</span></div>
+      <div class="kv"><span class="k">설정일</span><span class="v">${e.setDate?fmtDate(e.setDate):''}</span></div>
       <div class="kv"><span class="k">퇴직연금 투자가능</span><span class="v">${e.retire==null?'해당없음(해외 상장)':(e.retire==='Y'?'가능':'불가')}</span></div>
     </div>
     <div class="dr-sec"><h5>최신 공시(${asOf}) 보유 내역</h5>
